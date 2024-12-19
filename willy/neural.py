@@ -251,5 +251,49 @@ def main():
     return model, scaler, label_encoders, history
 
 
+def main2():
+    X, y, feature_columns, scaler, label_encoders, df = load_and_preprocess_data(
+        "mvc.csv", sample_fraction=1
+    )
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.3, random_state=42
+    )
+
+    # Create data loaders
+    train_dataset = AccidentDataset(X_train, y_train)
+    test_dataset = AccidentDataset(X_test, y_test)
+
+    train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=64)
+
+    model = NeuralNetwork(input_size=len(feature_columns))
+    class_counts = np.bincount(y_train)
+    class_weights = torch.FloatTensor(1.0 / class_counts)
+    class_weights = class_weights / class_weights.sum()
+
+    criterion = nn.CrossEntropyLoss(weight=class_weights)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+    history = train_model(model, train_loader, test_loader, criterion, optimizer)
+
+    # Make predictions on the test set
+    model.eval()
+    y_hat = []
+    with torch.no_grad():
+        for batch_X, _ in test_loader:
+            outputs = model(batch_X)
+            _, predicted = torch.max(outputs.data, 1)
+            y_hat.extend(predicted.cpu().numpy())
+
+    y_hat = np.array(y_hat)
+
+    # Print stats
+    print_stats(y_hat, y_test, model_description="Neural Network for MVC Severity")
+
+    return model, scaler, label_encoders, history
+
+
 if __name__ == "__main__":
-    main()
+    # main()
+    main2()
